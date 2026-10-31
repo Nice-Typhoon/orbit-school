@@ -1,6 +1,7 @@
 import {schools,themes,uid,allLessons,questionCount} from './data.js';
 import {schoolPlanets,planetSchool,planetVisual,courseInSchool} from './cosmos.js';
 import {solarHome,journey,schoolHero} from './cosmos-view.js';
+import {surfaceMap,baseArt} from './surface-bases.js';
 import {installPlanetFlights} from './planet-flight.js';
 import {loadData,saveData,putFile,getFile,deleteFile} from './storage.js';
 import {session,canEdit,isOwner,loadLibrary,saveLibrary,restoreLibrary,api,uploadPdf,fetchPdf} from './api-client.js';
@@ -65,13 +66,13 @@ function schoolsPage(){return shell(`${crumbs([['Школы']])}<div class="page
 function schoolPage(id){
  const s=schoolById(id);if(!planetSchool(id))return notFound();
  const subjects=data.subjects.filter(x=>x.schools.includes(s.id==='ege'?'senior':s.id));
- return shell(`${crumbs([['Планеты-школы','#/schools'],[s.name]])}${schoolHero(s)}<div class="section-title"><div><div class="eyebrow">Новые координаты знаний</div><h2>Что будем исследовать?</h2></div><p class="muted">Наведи на карточку, чтобы узнать больше</p></div><div class="subject-grid">${subjects.map(x=>`<a class="subject-card ${safeTheme(x.theme)}" href="${hrefSubject(s.id,x.id)}" aria-label="${esc(x.title)}. ${esc(x.desc)}"><div class="flip-inner"><div class="flip-front">${icon(x.icon,75)}<h3>${esc(x.title)}</h3><p>Открыть направление ${icon('arrow',13).replace('<svg','<svg style="display:inline;vertical-align:middle;margin-left:7px"')}</p></div><div class="flip-back"><h3>${esc(x.title)}</h3><p>${esc(x.desc)}</p><span class="text-button">К открытиям ${icon('arrow',16)}</span></div></div></a>`).join('')}</div><nav class="neighbor-planets" aria-label="Другие планеты">${schoolPlanets.filter(p=>p.id!==s.id).map(p=>`<a href="#/school/${p.id}" data-flight-school="${p.id}">${planetVisual(p.planet)}<span>${p.name}<small>${p.id==='ege'?'ЕГЭ':p.grades+' классы'}</small></span>${icon('arrow',14)}</a>`).join('')}</nav>`,'schools');
+ return shell(`${crumbs([['Планеты-школы','#/schools'],[s.title]])}${schoolHero(s)}${surfaceMap(s,subjects)}<nav class="neighbor-planets" aria-label="Другие планеты">${schoolPlanets.filter(p=>p.id!==s.id).map(p=>`<a href="#/school/${p.id}" data-flight-school="${p.id}">${planetVisual(p.planet)}<span>${p.title}<small>${p.name} · ${p.id==='ege'?'ЕГЭ':p.grades+' классы'}</small></span>${icon('arrow',14)}</a>`).join('')}</nav>`,'schools');
 }
 
 function subjectPage(schoolId,subjectId,mode='courses'){
  const s=schoolById(schoolId),sub=getSubject(subjectId);if(!sub)return notFound();
  const courses=data.courses.filter(c=>c.subject===sub.id&&courseInSchool(c,s.id)&&c.published);
- return shell(`${crumbs([[s.name,`#/school/${s.id}`],[sub.title]])}<div class="subject-hero ${safeTheme(sub.theme)}">${icon(sub.icon,80)}<div><h1>${esc(sub.title)}</h1><p>${esc(sub.desc)}</p><span class="tag" style="margin-top:15px">${s.id==='ege'?'Подготовка к ЕГЭ':s.grades+' классы'}</span></div></div><nav class="tabs" aria-label="Формат обучения">${[['courses','Курсы'],['materials','Учебные материалы'],['trainer','Тренажёр']].map(([key,label])=>`<a class="tab ${mode===key?'active':''}" href="${hrefSubject(s.id,sub.id,key)}">${label}</a>`).join('')}</nav>${mode==='trainer'?trainerContent(s.id,sub.id):`<div class="section-title"><div><h2>${mode==='materials'?'Библиотека для твоих открытий':'От интереса к первым результатам'}</h2><p class="muted" style="margin-top:10px">${mode==='materials'?'Выбери большую тему, затем нужный урок. Пособия и презентации открываются прямо здесь.':'Теория, примеры и задания с проверкой — шаг за шагом.'}</p></div></div>${courses.length?`<div class="course-grid" style="margin-bottom:45px">${courses.map(c=>courseCard(c,mode)).join('')}</div>`:empty('Первые открытия ещё впереди','Для этой школы пока нет опубликованных курсов. Можно выбрать другую школу или добавить курс в редакторе.','Открыть редактор','#/admin')}`}`,'schools');
+ return shell(`${crumbs([[s.title,`#/school/${s.id}`],[sub.title]])}<div class="subject-hero ${safeTheme(sub.theme)}">${baseArt(sub)}<div><span class="eyebrow">Учебная база · на поверхности</span><h1>${esc(sub.title)}</h1><p>${esc(sub.desc)}</p><span class="tag" style="margin-top:15px">${s.id==='ege'?'Подготовка к ЕГЭ':s.grades+' классы'}</span></div></div><nav class="tabs" aria-label="Формат обучения">${[['courses','Курсы'],['materials','Учебные материалы'],['trainer','Тренажёр']].map(([key,label])=>`<a class="tab ${mode===key?'active':''}" href="${hrefSubject(s.id,sub.id,key)}">${label}</a>`).join('')}</nav>${mode==='trainer'?trainerContent(s.id,sub.id):`<div class="section-title"><div><h2>${mode==='materials'?'Библиотека для твоих открытий':'От интереса к первым результатам'}</h2><p class="muted" style="margin-top:10px">${mode==='materials'?'Выбери большую тему, затем нужный урок. Пособия и презентации открываются прямо здесь.':'Теория, примеры и задания с проверкой — шаг за шагом.'}</p></div></div>${courses.length?`<div class="course-grid" style="margin-bottom:45px">${courses.map(c=>courseCard(c,mode)).join('')}</div>`:empty('Первые открытия ещё впереди','Для этой школы пока нет опубликованных курсов. Можно выбрать другую школу или добавить курс в редакторе.','Открыть редактор','#/admin')}`}`,'schools');
 }
 function empty(title,text,button='',href='#/'){return `<div class="empty">${icon('planet',55)}<h3>${esc(title)}</h3><p>${esc(text)}</p>${button?`<a class="btn secondary" href="${href}">${esc(button)} ${icon('arrow',15)}</a>`:''}</div>`;}
 function catalog(mode='courses',preset=''){
@@ -114,6 +115,7 @@ function render(){
  document.documentElement.dataset.planet=planet?.planet||'cosmos';
  document.documentElement.classList.toggle('home-universe',!page);
  document.documentElement.classList.toggle('school-universe',page==='school'&&!!planet);
+ document.documentElement.classList.toggle('subject-universe',page==='subject');
  document.documentElement.classList.toggle('motion-off',localStorage.getItem('orbita-motion')==='off');
  const pages={schools:schoolsPage,school:()=>schoolPage(a),subject:()=>subjectPage(a,b,c),catalog:()=>catalog(a,b),course:()=>coursePage(a),lesson:()=>lessonPage(a,b),materials:()=>materialsPage(a,b),trainer:trainerPage,quiz:quizPage,result:quizResult,profile:profilePage,about:aboutPage,admin:()=>adminPage(a,b)};
  app.innerHTML=page?(pages[page]?.()||notFound()):home();

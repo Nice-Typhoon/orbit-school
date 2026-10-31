@@ -37,44 +37,46 @@ export function installPlanetFlights() {
   };
 
   document.addEventListener('click', async event => {
-    const link = event.target.closest('a[data-flight-school]');
+    const link = event.target.closest('a[data-flight-school], a[data-land-school]');
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey ||
         event.ctrlKey || event.shiftKey || event.altKey || link.target === '_blank') return;
     if (active) { event.preventDefault(); return; }
-    const school = planetSchool(link.dataset.flightSchool);
-    const globe = link.querySelector('.celestial');
+    const landing = !!link.dataset.landSchool;
+    const school = planetSchool(link.dataset.flightSchool || link.dataset.landSchool);
+    const globe = link.querySelector(landing ? '.base-art' : '.celestial');
     if (!school || !globe || location.hash === link.getAttribute('href') ||
         reducedMotion.matches || document.documentElement.classList.contains('motion-off') ||
         typeof globe.animate !== 'function') return;
     event.preventDefault();
 
     const from = globe.getBoundingClientRect();
-    const destination = orbitGeometry(innerWidth, innerHeight, document.documentElement.clientWidth);
+    const destination = landing ? {size: innerWidth * 3, left: -innerWidth, top: -innerHeight*.8} : {size: Math.max(900, innerWidth*1.15), left: -innerWidth*.075, top: innerHeight*.44};
     const overlay = document.createElement('div');
-    overlay.className = 'planet-flight';
+    overlay.className = 'planet-flight' + (landing ? ' is-landing' : ' is-orbit-insertion');
     overlay.dataset.planet = school.planet;
     overlay.innerHTML = `<div class="flight-sky" aria-hidden="true"></div>
       <div class="flight-stars" aria-hidden="true">${Array.from({length: 18}, (_, i) => {
         const x = ((i * 37 + 9) % 96) + 2, y = ((i * 59 + 17) % 90) + 5;
         return `<i style="left:${x}%;top:${y}%;--dx:${(x - 50) * 1.5}vw;--dy:${(y - 50) * 1.5}vh;--streak-delay:${i % 4 * 60}ms"></i>`;
       }).join('')}</div>
-      <div class="flight-planet" aria-hidden="true">${planetVisual(school.planet)}</div>
-      <div class="flight-status" role="status"><span>Выходим на орбиту</span><strong>${school.name}</strong><small>Esc — отменить подлёт</small></div>`;
+      <div class="flight-orbit-grid" aria-hidden="true"></div><div class="flight-planet" aria-hidden="true">${landing ? globe.outerHTML : planetVisual(school.planet)}</div>
+      <div class="flight-status" role="status"><span>${landing ? "Начинаем посадку" : "Выходим на орбиту · " + school.name}</span><strong>${landing ? link.dataset.baseTitle.replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])) : school.title}</strong><small>Esc — отменить подлёт</small></div>`;
     const flyingGlobe = overlay.querySelector('.flight-planet');
     Object.assign(flyingGlobe.style, {left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.width}px`});
-    flyingGlobe.querySelector('.celestial').style.setProperty('--planet-size', `${from.width}px`);
+    if(!landing) flyingGlobe.querySelector('.celestial').style.setProperty('--planet-size', `${from.width}px`);
     document.body.append(overlay);
     const flight = {overlay, href: link.getAttribute('href'), origin: link, animations: [], committed: false};
     active = flight;
     link.classList.add('flight-source');
     document.documentElement.classList.add('planet-in-flight');
     const zoom = flyingGlobe.animate([
-      {transform: 'translate(0,0) scale(1)'},
+      {transform: 'translate(0,0) scale(1) rotate(0deg)'},
+      {transform: `translate(${innerWidth*.56-from.left}px,${innerHeight*.06-from.top}px) scale(${landing?2:Math.max(2,innerWidth*.65/from.width)}) rotate(${landing?-8:-24}deg)`, offset:.48},
       {transform: `translate(${destination.left - from.left}px,${destination.top - from.top}px) scale(${destination.size / from.width})`}
-    ], {duration: 1450, easing: 'cubic-bezier(.38,.04,.18,1)', fill: 'forwards'});
+    ], {duration: 1900, easing: 'cubic-bezier(.38,.04,.18,1)', fill: 'forwards'});
     const sky = overlay.querySelector('.flight-sky').animate([
       {opacity: 0}, {opacity: .9, offset: .45}, {opacity: 1}
-    ], {duration: 1450, fill: 'forwards'});
+    ], {duration: 1900, fill: 'forwards'});
     flight.animations.push(zoom, sky);
     try { await zoom.finished; await settle(flight); }
     catch { clear(flight); }
