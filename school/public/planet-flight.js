@@ -1,6 +1,6 @@
-import {planetSchool, planetVisual} from './cosmos.js';
-
-// These dimensions match the background globe in orbit-experience.css.
+import {planetSchool} from './cosmos.js';
+import {drawFlight} from './expedition-art.js';
+const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function orbitGeometry(width, height, contentWidth = width) {
   const size = width <= 700
     ? Math.max(620, Math.min(width * 1.7, 1000))
@@ -8,100 +8,37 @@ export function orbitGeometry(width, height, contentWidth = width) {
   return {size, left: contentWidth - size * .72, top: height * .12};
 }
 
-export function installPlanetFlights() {
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  let active = null;
-
-  const clear = flight => {
-    if (active !== flight) return;
-    active = null;
-    flight.animations.forEach(animation => animation.cancel());
-    flight.origin.classList.remove('flight-source');
-    flight.overlay.remove();
-    document.documentElement.classList.remove('planet-in-flight');
+export function installPlanetFlights(){
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+ let active=null;
+ const clear=f=>{if(active!==f)return;active=null;cancelAnimationFrame(f.frame);f.overlay.remove();document.documentElement.classList.remove('planet-in-flight');};
+ const commit=f=>{if(active!==f)return;f.committed=true;location.hash=f.href;};
+ document.addEventListener('click',event=>{
+  const link=event.target.closest('a[data-flight-school],a[data-land-school]');
+  if(!link||event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||link.target==='_blank')return;
+  if(active){event.preventDefault();return;}
+  const school=planetSchool(link.dataset.flightSchool||link.dataset.landSchool);
+  if(!school||location.hash===link.getAttribute('href')||reduced.matches||document.documentElement.classList.contains('motion-off'))return;
+  const landing=!!link.dataset.landSchool;
+  const overlay=document.createElement('div');overlay.className='expedition-flight';
+  overlay.innerHTML=`<div class="cinema-top"><span>ОРБИТА / ПОЛЁТНЫЙ ЖУРНАЛ</span><span>OR–01</span></div><canvas width="960" height="540" aria-hidden="true"></canvas><div class="cinema-caption" role="status"><span>${landing?'ОРБИТА → АТМОСФЕРА → ПОВЕРХНОСТЬ':'ВЫХОД ИЗ ПЕРЕЛЁТА · ОРБИТАЛЬНЫЙ МАНЁВР'}</span><strong>${escape(landing?link.dataset.baseTitle:school.title)}</strong><div class="cinema-progress"><i></i></div><small>Esc — отменить перелёт</small></div>`;
+  const canvas=overlay.querySelector('canvas'),context=canvas.getContext('2d');if(!context)return;
+  event.preventDefault();document.body.append(overlay);document.documentElement.classList.add('planet-in-flight');
+  const f={overlay,href:link.getAttribute('href'),origin:link,frame:0,start:performance.now(),committed:false};active=f;
+  const duration=landing?3600:2800;
+  const tick=now=>{
+   if(active!==f)return;
+   const p=Math.min(1,(now-f.start)/duration);
+   drawFlight(context,960,540,school.planet,link.dataset.baseKind||'archive',now/1000,p,landing);
+   overlay.querySelector('.cinema-progress i').style.width=`${p*100}%`;
+   if(p<1)f.frame=requestAnimationFrame(tick);
+   else{commit(f);overlay.classList.add('cinema-reveal');const fade=overlay.animate([{opacity:1},{opacity:0}],{duration:450,fill:'forwards'});fade.finished.then(()=>clear(f),()=>clear(f));}
   };
-
-  const settle = async flight => {
-    if (active !== flight) return;
-    flight.committed = true;
-    location.hash = flight.href;
-    // Let the existing hash router render the destination underneath the flight.
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    if (active !== flight) return;
-    const reveal = flight.overlay.animate([{opacity: 1}, {opacity: 0}], {
-      duration: 520, easing: 'ease-out', fill: 'forwards'
-    });
-    flight.animations.push(reveal);
-    try { await reveal.finished; } catch { /* Cancellation also releases the overlay. */ }
-    clear(flight);
-  };
-
-  document.addEventListener('click', async event => {
-    const link = event.target.closest('a[data-flight-school], a[data-land-school]');
-    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey ||
-        event.ctrlKey || event.shiftKey || event.altKey || link.target === '_blank') return;
-    if (active) { event.preventDefault(); return; }
-    const landing = !!link.dataset.landSchool;
-    const school = planetSchool(link.dataset.flightSchool || link.dataset.landSchool);
-    const globe = link.querySelector(landing ? '.base-art' : '.celestial');
-    if (!school || !globe || location.hash === link.getAttribute('href') ||
-        reducedMotion.matches || document.documentElement.classList.contains('motion-off') ||
-        typeof globe.animate !== 'function') return;
-    event.preventDefault();
-
-    const from = globe.getBoundingClientRect();
-    const destination = landing ? {size: innerWidth * 3, left: -innerWidth, top: -innerHeight*.8} : {size: Math.max(900, innerWidth*1.15), left: -innerWidth*.075, top: innerHeight*.44};
-    const overlay = document.createElement('div');
-    overlay.className = 'planet-flight' + (landing ? ' is-landing' : ' is-orbit-insertion');
-    overlay.dataset.planet = school.planet;
-    overlay.innerHTML = `<div class="flight-sky" aria-hidden="true"></div>
-      <div class="flight-stars" aria-hidden="true">${Array.from({length: 18}, (_, i) => {
-        const x = ((i * 37 + 9) % 96) + 2, y = ((i * 59 + 17) % 90) + 5;
-        return `<i style="left:${x}%;top:${y}%;--dx:${(x - 50) * 1.5}vw;--dy:${(y - 50) * 1.5}vh;--streak-delay:${i % 4 * 60}ms"></i>`;
-      }).join('')}</div>
-      <div class="flight-orbit-grid" aria-hidden="true"></div><div class="flight-planet" aria-hidden="true">${landing ? globe.outerHTML : planetVisual(school.planet)}</div>
-      <div class="flight-status" role="status"><span>${landing ? "Начинаем посадку" : "Выходим на орбиту · " + school.name}</span><strong>${landing ? link.dataset.baseTitle.replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])) : school.title}</strong><small>Esc — отменить подлёт</small></div>`;
-    const flyingGlobe = overlay.querySelector('.flight-planet');
-    Object.assign(flyingGlobe.style, {left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.width}px`});
-    if(!landing) flyingGlobe.querySelector('.celestial').style.setProperty('--planet-size', `${from.width}px`);
-    document.body.append(overlay);
-    const flight = {overlay, href: link.getAttribute('href'), origin: link, animations: [], committed: false};
-    active = flight;
-    link.classList.add('flight-source');
-    document.documentElement.classList.add('planet-in-flight');
-    const zoom = flyingGlobe.animate([
-      {transform: 'translate(0,0) scale(1) rotate(0deg)'},
-      {transform: `translate(${innerWidth*.56-from.left}px,${innerHeight*.06-from.top}px) scale(${landing?2:Math.max(2,innerWidth*.65/from.width)}) rotate(${landing?-8:-24}deg)`, offset:.48},
-      {transform: `translate(${destination.left - from.left}px,${destination.top - from.top}px) scale(${destination.size / from.width})`}
-    ], {duration: 1900, easing: 'cubic-bezier(.38,.04,.18,1)', fill: 'forwards'});
-    const sky = overlay.querySelector('.flight-sky').animate([
-      {opacity: 0}, {opacity: .9, offset: .45}, {opacity: 1}
-    ], {duration: 1900, fill: 'forwards'});
-    flight.animations.push(zoom, sky);
-    try { await zoom.finished; await settle(flight); }
-    catch { clear(flight); }
-  });
-
-  document.addEventListener('keydown', event => {
-    if (event.key !== 'Escape' || !active) return;
-    const flight = active;
-    clear(flight);
-    if (!flight.committed && flight.origin.isConnected) flight.origin.focus({preventScroll: true});
-    else document.querySelector('#main')?.focus({preventScroll: true});
-  });
-  window.addEventListener('hashchange', () => {
-    if (active && location.hash !== active.href) clear(active);
-  });
-  window.addEventListener('resize', () => {
-    if (!active) return;
-    const flight = active;
-    clear(flight);
-    location.hash = flight.href;
-  });
-  reducedMotion.addEventListener('change', () => {
-    if (!reducedMotion.matches || !active) return;
-    const flight = active;
-    clear(flight);
-    location.hash = flight.href;
-  });
+  f.frame=requestAnimationFrame(tick);
+ });
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&active){const f=active;clear(f);if(!f.committed&&f.origin.isConnected)f.origin.focus({preventScroll:true});else document.querySelector('#main')?.focus({preventScroll:true});}});
+ window.addEventListener('hashchange',()=>{if(active&&location.hash!==active.href)clear(active);});
+ const finish=()=>{if(active){const f=active;commit(f);clear(f);}};
+ window.addEventListener('resize',finish);
+ reduced.addEventListener('change',()=>{if(reduced.matches)finish();});
 }

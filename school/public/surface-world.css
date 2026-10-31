@@ -15,47 +15,4 @@
 .school-world-copy h2 { font-size: 1.4rem; }
 .school-world-copy p { max-width: 830px; margin-top: 16px; }
 .school-world-formats { margin-top: 20px; }
-.surface-map { position: relative; isolation: isolate; margin: 15px 0 55px; padding: 54px 45px 75px; }
-.surface-terrain { position: absolute; inset: 55px -7vw -90px; z-index: -1; overflow: hidden; border-radius: 50% 50% 10% 10% / 18% 18% 5% 5%; background: radial-gradient(ellipse at 48% -10%,rgba(var(--world-rgb),.35),transparent 60%),linear-gradient(180deg,#3b455b,#19243b 65%,#0b1428); box-shadow: 0 -2px 0 #adc9e966,0 -18px 65px rgba(var(--world-rgb),.18); }
-.surface-terrain:before { content:''; position:absolute; inset:0; background-image:linear-gradient(#c6d4e20b 1px,transparent 1px),linear-gradient(90deg,#c6d4e20b 1px,transparent 1px); background-size:100px 80px; transform:perspective(600px) rotateX(35deg) scale(1.3); }
-.surface-terrain:after { content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 70%,#080d21); }
-html[data-planet=mars] .surface-terrain { background:radial-gradient(ellipse at 50% 0,#b17760,#573d41 50%,#151e34); }
-html[data-planet=jupiter] .surface-terrain { background:radial-gradient(ellipse at 50% 0,#b59d7d,#62504e 50%,#151e34); }
-html[data-planet=saturn] .surface-terrain { background:radial-gradient(ellipse at 50% 0,#9f9980,#55535c 50%,#151e34); }
-html[data-planet=uranus] .surface-terrain { background:radial-gradient(ellipse at 50% 0,#639da7,#344e67 50%,#151e34); }
-html[data-planet=neptune] .surface-terrain { background:radial-gradient(ellipse at 50% 0,#567cb1,#344268 50%,#151e34); }
-.terrain-crater { position:absolute;width:180px;height:65px;border-radius:50%;background:#050d2327;box-shadow:inset 0 7px 10px #020b2433,0 3px 0 #c6d5e319;transform:rotate(-12deg); }
-.crater-one { left:3%;top:35%; }.crater-two { right:8%;top:65%;width:260px;height:95px; }.crater-three { left:35%;top:78%;width:90px;height:32px; }
-.surface-map-heading { text-align:center;position:relative;margin:0 auto 25px; }
-.surface-map-heading .eyebrow { justify-content:center; }
-.surface-map-heading h2 { font-size:clamp(30px,3vw,48px);margin:14px 0; }
-.surface-map-heading p { font-size:1rem;color:#bdc9de; }
-.surface-bases { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:35px 25px; }
-.surface-base { display:flex;flex-direction:column;align-items:center;position:relative;padding:10px 12px 22px;min-width:0;border-radius:30px;outline-offset:3px;transition:background .3s; }
-.surface-base:nth-child(3n+2) { translate:0 30px; }
-.base-art { display:block;width:100%;max-width:360px;overflow:visible;filter:drop-shadow(0 16px 20px #020a2138);transition:transform .5s,filter .5s; }
-.surface-base:hover .base-art,.surface-base:focus-visible .base-art { transform:translateY(-10px) scale(1.045);filter:drop-shadow(0 10px 25px #94e7e33d); }
-.surface-base:hover { background:#d0e6ff09; }
-.base-label { text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px;background:#0b162edb;border:1px solid #b8d1f22c;box-shadow:0 8px 25px #040b2522;border-radius:16px;padding:16px 20px;width:100%;max-width:345px;position:relative; }
-.base-label strong { font-size:1.25rem;line-height:1.4;overflow-wrap:anywhere; }
-.base-label>span { font-size:.8125rem;color:#afc5dc; }
-.base-label .base-land { color:var(--accent);font-size:.8125rem;margin-top:7px; }
-.base-beacon { width:7px;height:7px;background:#a6ffe2;box-shadow:0 0 15px #a6ffe2;position:absolute;top:18%;right:29%;border-radius:50%;z-index:2;animation:starlight 3s infinite alternate; }
-.flight-status strong { font-size:clamp(32px,4.5vw,72px);max-width:75vw; }
-.flight-orbit-grid { position:absolute;left:-10%;right:-10%;bottom:-40%;height:80%;border-radius:50%;border:1px solid #bce6ff55;box-shadow:0 -15px 80px #6eacd32b;z-index:4;background:repeating-linear-gradient(90deg,transparent 0 110px,#c5e5ff18 111px 112px),repeating-linear-gradient(0deg,transparent 0 70px,#c5e5ff18 71px 72px);transform:perspective(600px) rotateX(60deg);animation:orbit-grid-entry 1.9s both; }
-.is-landing .flight-orbit-grid { bottom:-10%;height:120%;border-radius:0;background-color:#34405a;animation:landing-grid 1.9s both;z-index:2; }
-.is-landing .flight-planet .base-art { max-width:none;filter:none; }
-.is-landing .flight-status { bottom:7vh; }
-.flight-source .base-art { visibility:hidden; }
-.surface-terrain { bottom:0; }
-.subject-universe .planet-horizon { opacity:.12; }
-.subject-universe .subject-hero { background:radial-gradient(ellipse at 10% 100%,rgba(var(--world-rgb),.25),transparent 70%),#111c30; }
-.subject-hero>svg.base-art { width:240px;height:auto;max-width:35%;flex-shrink:0; }
 .subject-hero .eyebrow { font-size:.75rem;margin-bottom:14px; }
-@media(max-width:600px) { .subject-hero { flex-direction:column;align-items:flex-start; }.subject-hero>svg.base-art{width:180px;max-width:75%;align-self:center}.subject-hero .eyebrow{font-size:.625rem} }
-@keyframes orbit-grid-entry { 0%,40%{opacity:0;transform:perspective(600px) rotateX(80deg) translateY(200px)}100%{opacity:.65;transform:perspective(600px) rotateX(60deg)} }
-@keyframes landing-grid { from{opacity:0;transform:perspective(600px) rotateX(65deg) scale(.5)}to{opacity:1;transform:perspective(600px) rotateX(10deg) scale(3)} }
-@media(max-width:1000px) { .surface-bases{grid-template-columns:repeat(2,minmax(0,1fr));gap:25px}.surface-base:nth-child(3n+2){translate:none}.surface-map{padding-inline:20px}.surface-base:nth-child(even){translate:0 20px} }
-@media(max-width:600px) { .stop-copy h2{font-size:clamp(25px,6.4vw,34px)}.stop-school-title{font-size:.875rem}.school-world-heading h1{font-size:clamp(38px,10vw,54px)}.surface-map{padding:35px 0 45px}.surface-terrain{inset:60px -22px -50px;border-radius:50% 50% 0 0 / 5% 5% 0 0}.surface-bases{gap:22px 10px}.surface-base{padding:0 0 12px}.base-label{padding:12px 9px;border-radius:12px}.base-label strong{font-size:.9375rem}.base-label>span{font-size:.6875rem}.base-label .base-land{font-size:.75rem}.surface-map-heading h2{font-size:30px}.surface-map-heading p{font-size:.875rem}.school-universe .planet-school-hero{padding:20px 0 25px}.school-world-copy h2{font-size:1.2rem}.surface-base:nth-child(even){translate:0 15px} }
-@media(max-width:360px) { .surface-bases{grid-template-columns:1fr}.surface-base:nth-child(even){translate:none}.base-art{max-width:280px}.base-label{max-width:280px}.base-label strong{font-size:1.125rem}.base-label>span{font-size:.8125rem} }
-@media(prefers-reduced-motion:reduce) { .base-art{transition:none}.surface-base:hover .base-art{transform:none}.flight-orbit-grid{animation:none} }
