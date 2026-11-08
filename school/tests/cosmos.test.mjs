@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {initialData,schools} from '../public/data.js';
+import {schools} from '../public/data.js';
+import {initialData} from '../lib/course-seed.mjs';
 import {schoolPlanets,courseInSchool} from '../public/cosmos.js';
 import {journey} from '../public/cosmos-view.js';
 

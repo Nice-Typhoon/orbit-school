@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {roleFor,assertTeacher,assertOwner,assertWriteOrigin} from '../lib/access.mjs';
 import {validateLibrary} from '../lib/library-validation.mjs';
-import {initialData} from '../public/data.js';
+import {initialData} from '../lib/course-seed.mjs';
 const owner={userId:'site-owner-id',email:'owner@example.test'};
 const teacher={userId:'site-teacher-id',email:'teacher@example.test'};
 test('Default is denied; signing in alone does not grant editing',()=>{

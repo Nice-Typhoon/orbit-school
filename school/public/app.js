@@ -1,15 +1,13 @@
-import {schools,themes,uid,allLessons,questionCount} from './data.js';
+import {schools,themes,uid,allLessons,questionCount,trainingQuestions} from './data.js';
 import {schoolPlanets,planetSchool,planetVisual,courseInSchool} from './cosmos.js';
-import {solarHome,journey,schoolHero} from './cosmos-view.js';
-import {surfaceMap,landingScene} from './surface-bases.js';
-import {mountExpeditionScenes} from './expedition-scenes.js';
+import {solarHome,journey,schoolHero,skyDetails} from './cosmos-view.js';
 import {installPlanetFlights} from './planet-flight.js';
 import {loadData,saveData,putFile,getFile,deleteFile} from './storage.js';
 import {session,canEdit,isOwner,loadLibrary,saveLibrary,restoreLibrary,api,uploadPdf,fetchPdf} from './api-client.js';
 
 const previousLocalLibrary=localStorage.getItem('orbita-school-v1');
 let data=loadData();
-saveData(data);
+let studyProfileUnavailable=false;
 let quiz=null, draft=null, lessonDraft=null, viewer=null, lastFocus=null, toastTimer;
 const adminActions=new Set(['save-course-navigation','discard-course-navigation','new-subject','edit-subject','delete-subject','confirm-delete-subject','new-course','delete-course','confirm-delete-course','add-module','remove-module','confirm-remove-module','add-lesson','edit-lesson','remove-lesson','confirm-remove-lesson','add-question','remove-question','remove-attachment','remove-pending-file','export','confirm-import','remove-teacher','confirm-remove-teacher','migrate-legacy','confirm-migrate-legacy']);
 const app=document.querySelector('#app'), overlay=document.querySelector('#overlay');
@@ -21,14 +19,14 @@ const schoolById=id=>{const p=planetSchool(id);const original=schools.find(s=>s.
 let activeSchoolId=sessionStorage.getItem('orbita-active-school')||'';
 const progress=c=>allLessons(c).filter(l=>data.progress[c.id]?.includes(l.id)).length;
 const normalize=v=>String(v).trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
-const check=(q,a)=>normalize(q.answer)===normalize(a);
 const slugPath=s=>encodeURIComponent(s);
-function persist(){if(!saveData(data)){toast('Не удалось сохранить: хранилище браузера заполнено. Экспортируйте копию из редактора.');return false;}return true;}
+const cacheData=()=>saveData(data,{keepGuestLearning:!!session.user});
+function persist(){if(!cacheData()){toast('Не удалось сохранить данные в браузере.');return false;}return true;}
 let librarySaving=false;
 async function persistLibrary(){
  if(librarySaving){toast('Сохранение уже выполняется.');return false;}
  librarySaving=true;
- try{await saveLibrary(data);saveData(data);return true;}
+ try{await saveLibrary(data);cacheData();return true;}
  catch(e){restoreLibrary(data);toast(e.message);return false;}
  finally{librarySaving=false;}
 }
@@ -49,7 +47,7 @@ function shell(content,active=''){
  const nav=[['schools','Школы','#/schools'],['courses','Курсы','#/catalog/courses'],['materials','Материалы','#/catalog/materials'],['trainer','Тренажёр','#/trainer'],['about','О платформе','#/about']];
  const links=nav.map(([key,title,url])=>`<a href="${url}" class="${active===key?'active':''}">${title}</a>`).join('');
  const isHome=!route()[0];
- return `<div class="cosmic-backdrop" aria-hidden="true">${!isHome&&planetSchool(activeSchoolId)&&['school','subject','course','lesson','materials','quiz','result'].includes(route()[0])?`<div class="planet-horizon">${planetVisual(document.documentElement.dataset.planet)}</div>`:''}</div><div class="container cosmic-shell"><header class="header">${brand()}${isHome?'<span class="header-caption">БЕСПЛАТНОЕ ОБРАЗОВАНИЕ · БЕЗГРАНИЧНЫЙ КОСМОС</span>':''}<nav class="nav" aria-label="Главная навигация">${links}</nav><div class="header-actions"><button class="icon-button" data-action="search" aria-label="Поиск по платформе">${icon('search',18)}</button><a class="btn light small" href="#/profile">${icon('user',16)}Моё обучение</a></div></header><nav class="mobile-nav" aria-label="Разделы">${links}</nav><main id="main" tabindex="-1">${content}</main><footer class="footer">${brand()}<p>Знания открыты. Возможности безграничны.</p><div class="footer-links"><a href="#/about">О платформе</a><a href="#/admin">Для преподавателей ${icon('arrow',12).replace('<svg','<svg style="display:inline;vertical-align:middle"')}</a><span>© ${new Date().getFullYear()} ${esc(data.platform)}</span></div></footer></div>`;
+ return `<div class="cosmic-backdrop" aria-hidden="true">${skyDetails()}${!isHome&&planetSchool(activeSchoolId)&&['school','subject','course','lesson','materials','quiz','result'].includes(route()[0])?`<div class="planet-horizon">${planetVisual(document.documentElement.dataset.planet)}</div>`:''}</div><div class="container cosmic-shell"><header class="header">${brand()}${isHome?'<span class="header-caption">БЕСПЛАТНОЕ ОБРАЗОВАНИЕ · БЕЗГРАНИЧНЫЙ КОСМОС</span>':''}<nav class="nav" aria-label="Главная навигация">${links}</nav><div class="header-actions"><button class="icon-button" data-action="search" aria-label="Поиск по платформе">${icon('search',18)}</button><a class="btn light small" href="#/profile">${icon('user',16)}Моё обучение</a></div></header><nav class="mobile-nav" aria-label="Разделы">${links}</nav><main id="main" tabindex="-1">${content}</main><footer class="footer">${brand()}<p>Знания открыты. Возможности безграничны.</p><div class="footer-links"><a href="#/about">О платформе</a><a href="#/admin">Для преподавателей ${icon('arrow',12).replace('<svg','<svg style="display:inline;vertical-align:middle"')}</a><span>© ${new Date().getFullYear()} ${esc(data.platform)}</span></div></footer></div>`;
 }
 function fish(color='#e9c394'){return `<svg viewBox="0 0 100 55" fill="none" aria-hidden="true"><path d="M70 26 95 7c-2 18-1 24 2 39L70 31" fill="${color}" opacity=".8"/><path d="M20 18C25-4 49 1 57 15M33 42c10 16 23 10 25-2" fill="${color}" opacity=".65"/><path d="M4 28C15 5 53 4 76 27 54 53 17 50 4 28Z" fill="${color}"/><path d="M39 15c-11 11-8 23 1 29" stroke="#fff" stroke-opacity=".35" stroke-width="4"/><circle cx="18" cy="26" r="3" fill="#38314d"/><circle cx="17" cy="25" r="1" fill="white"/><path d="m47 25 14 5-12 6" fill="#fff" opacity=".3"/></svg>`;}
 function space(){return `<div class="space-wrap"><div class="floating-label">${icon('sparkles',17)}Вселенная твоих возможностей</div><div class="space" data-action="ripple" aria-label="Космос с рыбками: нажмите, чтобы создать водные круги"><div class="orbit-line"></div><div class="orbit-line second"></div>${Array.from({length:34},(_,i)=>`<i class="star-dot" style="left:${(i*31+7)%98}%;top:${(i*23+9)%95}%;width:${i%4===0?3:2}px;height:${i%4===0?3:2}px;animation-delay:-${i%5}s"></i>`).join('')}<div class="small-planet"></div><div class="tiny-planet"></div><div class="planet-main"></div><div class="planet-ring"></div><button class="space-fish fish-one" data-action="fish" aria-label="Золотая космическая рыбка">${fish()}</button><button class="space-fish fish-two" data-action="fish" aria-label="Мятная космическая рыбка">${fish('#c7e5c3')}</button><button class="space-fish fish-three" data-action="fish" aria-label="Лиловая космическая рыбка">${fish('#d5bcf7')}</button><span class="space-note">${icon('target',12)}Нажми на рыбку — загадай открытие</span></div><div class="floating-label bottom">${icon('heart',17)}Бесплатно. Для каждого.</div></div>`;}
@@ -67,13 +65,18 @@ function schoolsPage(){return shell(`${crumbs([['Школы']])}<div class="page
 function schoolPage(id){
  const s=schoolById(id);if(!planetSchool(id))return notFound();
  const subjects=data.subjects.filter(x=>x.schools.includes(s.id==='ege'?'senior':s.id));
- return shell(`${crumbs([['Планеты-школы','#/schools'],[s.title]])}${schoolHero(s)}${surfaceMap(s,subjects)}<nav class="neighbor-planets" aria-label="Другие планеты">${schoolPlanets.filter(p=>p.id!==s.id).map(p=>`<a href="#/school/${p.id}" data-flight-school="${p.id}">${planetVisual(p.planet)}<span>${p.title}<small>${p.name} · ${p.id==='ege'?'ЕГЭ':p.grades+' классы'}</small></span>${icon('arrow',14)}</a>`).join('')}</nav>`,'schools');
+ const cards=subjects.map(sub=>`<a class="subject-card ${safeTheme(sub.theme)}" href="${hrefSubject(s.id,sub.id)}" aria-label="${esc(sub.title)}. ${esc(sub.desc)}">
+  <div class="flip-inner">
+   <div class="flip-front">${icon(sub.icon,75)}<h3>${esc(sub.title)}</h3><p class="subject-summary">${esc(sub.desc)}</p><span class="text-button">Открыть ${icon('arrow',16)}</span></div>
+   <div class="flip-back" aria-hidden="true"><h3>${esc(sub.title)}</h3><p>${esc(sub.desc)}</p><span class="text-button">Открыть ${icon('arrow',16)}</span></div>
+  </div></a>`).join('');
+ return shell(`${crumbs([['Планеты-школы','#/schools'],[s.title]])}${schoolHero(s)}<section class="school-subjects" aria-labelledby="school-subject-title"><div class="section-title"><div><h2 id="school-subject-title">Выбери предмет</h2></div></div>${cards?`<div class="subject-grid">${cards}</div>`:empty('Предметы скоро появятся','Загляни на другую планету, чтобы начать учиться.')}</section><nav class="neighbor-planets" aria-label="Другие планеты">${schoolPlanets.filter(p=>p.id!==s.id).map(p=>`<a href="#/school/${p.id}" data-flight-school="${p.id}">${planetVisual(p.planet)}<span>${p.title}<small>${p.name} · ${p.id==='ege'?'ЕГЭ':p.grades+' классы'}</small></span>${icon('arrow',14)}</a>`).join('')}</nav>`,'schools');
 }
 
 function subjectPage(schoolId,subjectId,mode='courses'){
  const s=schoolById(schoolId),sub=getSubject(subjectId);if(!sub)return notFound();
  const courses=data.courses.filter(c=>c.subject===sub.id&&courseInSchool(c,s.id)&&c.published);
- return shell(`${crumbs([[s.title,`#/school/${s.id}`],[sub.title]])}<div class="subject-hero ${safeTheme(sub.theme)}">${landingScene(s,sub)}<div><span class="eyebrow">Учебная база · на поверхности</span><h1>${esc(sub.title)}</h1><p>${esc(sub.desc)}</p><span class="tag" style="margin-top:15px">${s.id==='ege'?'Подготовка к ЕГЭ':s.grades+' классы'}</span></div></div><nav class="tabs" aria-label="Формат обучения">${[['courses','Курсы'],['materials','Учебные материалы'],['trainer','Тренажёр']].map(([key,label])=>`<a class="tab ${mode===key?'active':''}" href="${hrefSubject(s.id,sub.id,key)}">${label}</a>`).join('')}</nav>${mode==='trainer'?trainerContent(s.id,sub.id):`<div class="section-title"><div><h2>${mode==='materials'?'Библиотека для твоих открытий':'От интереса к первым результатам'}</h2><p class="muted" style="margin-top:10px">${mode==='materials'?'Выбери большую тему, затем нужный урок. Пособия и презентации открываются прямо здесь.':'Теория, примеры и задания с проверкой — шаг за шагом.'}</p></div></div>${courses.length?`<div class="course-grid" style="margin-bottom:45px">${courses.map(c=>courseCard(c,mode)).join('')}</div>`:empty('Первые открытия ещё впереди','Для этой школы пока нет опубликованных курсов. Можно выбрать другую школу или добавить курс в редакторе.','Открыть редактор','#/admin')}`}`,'schools');
+ return shell(`${crumbs([[s.title,`#/school/${s.id}`],[sub.title]])}<div class="subject-hero ${safeTheme(sub.theme)}">${icon(sub.icon,80)}<div><span class="eyebrow">Планета ${s.name}</span><h1>${esc(sub.title)}</h1><p>${esc(sub.desc)}</p><span class="tag" style="margin-top:15px">${s.id==='ege'?'Подготовка к ЕГЭ':s.grades+' классы'}</span></div></div><nav class="tabs" aria-label="Формат обучения">${[['courses','Курсы'],['materials','Учебные материалы'],['trainer','Тренажёр']].map(([key,label])=>`<a class="tab ${mode===key?'active':''}" href="${hrefSubject(s.id,sub.id,key)}">${label}</a>`).join('')}</nav>${mode==='trainer'?trainerContent(s.id,sub.id):`<div class="section-title"><div><h2>${mode==='materials'?'Библиотека для твоих открытий':'От интереса к первым результатам'}</h2><p class="muted" style="margin-top:10px">${mode==='materials'?'Выбери большую тему, затем нужный урок. Пособия и презентации открываются прямо здесь.':'Теория, примеры и задания с проверкой — шаг за шагом.'}</p></div></div>${courses.length?`<div class="course-grid" style="margin-bottom:45px">${courses.map(c=>courseCard(c,mode)).join('')}</div>`:empty('Первые открытия ещё впереди','Для этой школы пока нет опубликованных курсов. Можно выбрать другую школу или добавить курс в редакторе.','Открыть редактор','#/admin')}`}`,'schools');
 }
 function empty(title,text,button='',href='#/'){return `<div class="empty">${icon('planet',55)}<h3>${esc(title)}</h3><p>${esc(text)}</p>${button?`<a class="btn secondary" href="${href}">${esc(button)} ${icon('arrow',15)}</a>`:''}</div>`;}
 function catalog(mode='courses',preset=''){
@@ -98,13 +101,13 @@ function materialsPage(courseId,lessonId){const c=getCourse(courseId);if(!c||!c.
 function trainerContent(school='',subject=''){
  const courses=data.courses.filter(c=>c.published&&(!school||courseInSchool(c,school))&&(!subject||c.subject===subject));
  const modules=courses.flatMap(c=>c.modules.filter(m=>m.lessons.some(l=>l.questions.length)).map(m=>({c,m})));
- return `<div class="trainer-layout"><div>${!subject?`<div class="filters"><select id="trainer-school" aria-label="Классы"><option value="">Все классы</option>${schoolPlanets.map(s=>`<option value="${s.id}" ${school===s.id?'selected':''}>${s.name} · ${s.id==='ege'?'ЕГЭ':s.grades+' классы'}</option>`).join('')}</select><select id="trainer-subject" aria-label="Направление"><option value="">Все направления</option>${data.subjects.map(s=>`<option value="${esc(s.id)}">${esc(s.title)}</option>`).join('')}</select></div>`:''}<div id="trainer-topics"><div class="topic-list">${modules.map(({c,m})=>`<button class="topic" data-action="start-quiz" data-course="${esc(c.id)}" data-module="${esc(m.id)}"><span class="topic-icon">${icon(c.icon,23)}</span><span><h3>${esc(m.title)}</h3><p>${esc(c.title)}</p><p>${m.lessons.reduce((n,l)=>n+l.questions.length,0)} ${plural(m.lessons.reduce((n,l)=>n+l.questions.length,0),'вопрос','вопроса','вопросов')} · Без ограничения времени</p></span></button>`).join('')}</div>${!modules.length?empty('Здесь пока тихо','В этом направлении ещё нет заданий для выбранных классов.'):''}</div></div><aside class="panel"><span class="strip-icon" style="margin-bottom:18px">${icon('target',22)}</span><h3>Маленькая проверка,<br>большая уверенность</h3><p class="muted small">Выбери любую тему — проходить весь курс не обязательно. В конце покажем результат и разберём каждый ответ.</p><div class="progress" style="margin:22px 0"></div><p class="small muted">${icon('heart',14).replace('<svg','<svg style="display:inline;vertical-align:middle"')} Ошибаться здесь можно.</p></aside></div>`;
+ return `<div class="trainer-layout"><div>${!subject?`<div class="filters"><select id="trainer-school" aria-label="Классы"><option value="">Все классы</option>${schoolPlanets.map(s=>`<option value="${s.id}" ${school===s.id?'selected':''}>${s.name} · ${s.id==='ege'?'ЕГЭ':s.grades+' классы'}</option>`).join('')}</select><select id="trainer-subject" aria-label="Направление"><option value="">Все направления</option>${data.subjects.map(s=>`<option value="${esc(s.id)}">${esc(s.title)}</option>`).join('')}</select></div>`:''}<div id="trainer-topics"><div class="topic-list">${modules.map(({c,m})=>`<button class="topic" data-action="start-quiz" data-course="${esc(c.id)}" data-module="${esc(m.id)}"><span class="topic-icon">${icon(c.icon,23)}</span><span><h3>${esc(m.title)}</h3><p>${esc(c.title)}</p><p>${trainingQuestions(m).length} ${plural(trainingQuestions(m).length,'вопрос','вопроса','вопросов')} · Без ограничения времени</p></span></button>`).join('')}</div>${!modules.length?empty('Здесь пока тихо','В этом направлении ещё нет заданий для выбранных классов.'):''}</div></div><aside class="panel"><span class="strip-icon" style="margin-bottom:18px">${icon('target',22)}</span><h3>Маленькая проверка,<br>большая уверенность</h3><p class="muted small">Выбери любую тему — проходить весь курс не обязательно. В конце покажем результат и разберём каждый ответ.</p><div class="progress" style="margin:22px 0"></div><p class="small muted">${icon('heart',14).replace('<svg','<svg style="display:inline;vertical-align:middle"')} Ошибаться здесь можно.</p></aside></div>`;
 }
 function trainerPage(){return shell(`${crumbs([['Тренажёр']])}<div class="page-heading"><div class="eyebrow">Практика без страха ошибок</div><h1>Что проверим сегодня?</h1><p>Выбирай тему, отвечай на вопросы и узнавай, что уже получается, а к чему стоит вернуться.</p></div>${trainerContent()}`,'trainer');}
 function quizPage(){if(!quiz){location.hash='#/trainer';return '';}const q=quiz.questions[quiz.index];if(!q)return quizResult();return shell(`${crumbs([['Тренажёр','#/trainer'],[quiz.title]])}<div class="narrow" style="margin-bottom:45px"><div class="quiz-header"><div><div class="eyebrow">Проверяем знания</div><h1 style="margin-top:10px">${esc(quiz.title)}</h1></div><button class="text-button small" data-action="leave-quiz">Завершить позже ${icon('close',15)}</button></div><div class="row small muted"><span>Вопрос ${quiz.index+1} из ${quiz.questions.length}</span><span class="end">Не торопись. У тебя всё получится.</span></div><div class="progress"><span style="width:${(quiz.index+1)/quiz.questions.length*100}%"></span></div><form id="trainer-quiz" class="panel quiz-question" style="margin-top:25px"><span class="tag">${q.type==='choice'?'Выбери один ответ':'Введи свой ответ'}</span><h2>${esc(q.text)}</h2>${q.context?`<div class="prose"><pre><code>${esc(q.context)}</code></pre></div>`:''}${questionInput(q,0,quiz.answers[quiz.index]||'','answer')}<div class="quiz-nav"><button class="btn secondary" type="button" data-action="quiz-back" ${quiz.index===0?'disabled':''}>← Назад</button><button class="btn" type="submit">${quiz.index===quiz.questions.length-1?'Посмотреть результат':'Следующий вопрос'} ${icon('arrow',16)}</button></div></form></div>`,'trainer');}
-function quizResult(){if(!quiz)return trainerPage();const right=quiz.questions.filter((q,i)=>check(q,quiz.answers[i])).length,percent=Math.round(right/quiz.questions.length*100);if(!quiz.recorded){data.attempts.push({id:uid(),title:quiz.title,courseId:quiz.courseId,total:quiz.questions.length,right,date:new Date().toISOString()});quiz.recorded=true;persist();}return shell(`${crumbs([['Тренажёр','#/trainer'],['Результат']])}<div class="narrow" style="margin-bottom:45px"><section class="result-header">${icon(percent>=80?'trophy':'sparkles',65)}<div class="result-score">${percent}%</div><h1 style="font-size:32px">${percent===100?'Отличное открытие!':percent>=60?'Ты на верном пути!':'Хорошее начало пути'}</h1><p>${right} из ${quiz.questions.length} ${plural(quiz.questions.length,'ответа','ответов','ответов')} верно · ${esc(quiz.title)}<br>${percent===100?'Тема усвоена отлично. Можно двигаться дальше.':percent>=60?'Основы уже получаются. Разбор поможет закрыть пробелы.':'Посмотри объяснения и повтори теорию. Следующий раз будет увереннее.'}</p><div class="row" style="justify-content:center"><button class="btn" data-action="retry-quiz">Попробовать ещё раз ${icon('arrow',15)}</button><a class="btn secondary" href="#/course/${slugPath(quiz.courseId)}">Повторить теорию</a></div></section><h2 style="font-size:24px;margin-bottom:20px">Разберём каждый ответ</h2>${quiz.questions.map((q,i)=>{const correct=check(q,quiz.answers[i]);return `<article class="result-item"><h3><span class="${correct?'correct':'incorrect'}">${correct?'✓':'×'}</span> ${i+1}. ${esc(q.text)}</h3><p class="${correct?'correct':'incorrect'}">Твой ответ: ${esc(quiz.answers[i]||'Без ответа')}</p>${!correct?`<p>Правильный ответ: <strong>${esc(q.answer)}</strong></p>`:''}<p class="muted">${esc(q.explanation)}</p></article>`}).join('')}<a class="text-button" href="#/trainer">← Выбрать другую тему</a></div>`,'trainer');}
-function profilePage(){const started=data.courses.filter(c=>c.published&&progress(c)>0),completed=Object.values(data.progress).reduce((n,a)=>n+a.length,0);return shell(`${crumbs([['Моё обучение']])}<div class="page-heading"><div class="eyebrow">Твой личный маршрут</div><h1>С возвращением, исследователь!</h1><p>Каждый маленький шаг считается. Продолжай там, где остановился, или открывай новое.</p></div>${notice('Прогресс сохраняется в этом браузере на этом устройстве. Аккаунты и синхронизация появятся после подключения сервера.')}<div class="profile-stats"><div class="stat-card purple"><strong>${completed}</strong><span>Уроков пройдено</span></div><div class="stat-card green"><strong>${data.attempts.length}</strong><span>Тренировок завершено</span></div><div class="stat-card peach"><strong>${started.length}</strong><span>Курсов начато</span></div></div><h2 style="font-size:25px;margin-bottom:20px">Продолжить открытия</h2>${started.length?`<div class="course-grid">${started.map(c=>courseCard(c)).join('')}</div>`:empty('Твой первый шаг впереди','Выбери курс и пройди первый урок — здесь появится твой прогресс.','Найти интересный курс','#/catalog/courses')}<section class="section"><h2 style="font-size:25px;margin-bottom:20px">Последние тренировки</h2>${data.attempts.length?data.attempts.slice(-6).reverse().map(a=>`<div class="admin-row" style="background:white;border-radius:14px;margin-bottom:10px">${icon('target',22)}<div><strong>${esc(a.title)}</strong><small>${new Date(a.date).toLocaleDateString('ru-RU')} · ${a.right} из ${a.total} верно</small></div><span class="status end">${Math.round(a.right/a.total*100)}%</span></div>`).join(''):'<p class="muted">Пока нет тренировок. <a class="text-button" href="#/trainer">Проверим знания?</a></p>'}</section>`);}
-function aboutPage(){return shell(`${crumbs([['О платформе']])}<div class="page-heading"><div class="eyebrow">Образование без границ</div><h1>Любопытство — твоя суперсила</h1><p>${esc(data.platform)} — рабочее название платформы бесплатного образования. Мы создаём место, где школьники могут учиться, пробовать и находить свои интересы.</p></div><div class="about-grid">${[['book','Читай и разбирайся','Учебные материалы собраны по направлениям, большим темам и урокам. Конспекты и презентации открываются прямо в браузере.'],['play','Учись шаг за шагом','В курсах теория чередуется с практикой. Выбирай ответ или вводи его сам — и получай понятное объяснение.'],['target','Проверяй себя','Тренажёр помогает повторить отдельную тему. После теста ты увидишь результат и подробный разбор ответов.']].map(([i,t,p])=>`<div class="panel">${icon(i,40)}<h3>${t}</h3><p>${p}</p></div>`).join('')}</div><section class="faq"><h2 style="font-size:26px;margin:35px 0 20px">Всё, что хочется спросить</h2><details open><summary>Это действительно бесплатно?</summary><p>В текущей версии все уроки, материалы и тренажёры открыты бесплатно. Подписок и платных разделов нет.</p></details><details><summary>С чего начать?</summary><p>Выбери свою школу, затем направление. Для последовательного обучения открой «Курсы», для повторения отдельной темы — «Тренажёр», для чтения — «Учебные материалы».</p></details><details><summary>Можно ли вернуться к пройденному уроку?</summary><p>Да. Уроки всегда доступны, а прогресс сохраняется в этом браузере. Регистрация для демонстрационной версии не нужна.</p></details><details><summary>Как преподавателю добавить свой курс?</summary><p>Открой редактор преподавателя внизу страницы. Добавь направление, выбери цвет карточки, создай курс, темы, уроки и задания. Можно прикрепить PDF-пособия и PDF-презентации. Редактор доступен после входа преподавателя. Сохранённые курсы появляются в общей библиотеке.</p></details></section><section class="about-banner">${icon('rocket',60)}<div><h3>Начать можно прямо сейчас</h3><p>Один урок — уже маленькое открытие.</p></div><a class="btn" href="#/schools">Выбрать школу ${icon('arrow',16)}</a></section>`,'about');}
+function quizResult(){if(!quiz?.result)return trainerPage();const {right,total,feedback}=quiz.result,percent=Math.round(right/total*100);return shell(`${crumbs([['Тренажёр','#/trainer'],['Результат']])}<div class="narrow" style="margin-bottom:45px"><section class="result-header">${icon(percent>=80?'trophy':'sparkles',65)}<div class="result-score">${percent}%</div><h1 style="font-size:32px">${percent===100?'Отличное открытие!':percent>=60?'Ты на верном пути!':'Хорошее начало пути'}</h1><p>${right} из ${quiz.questions.length} ${plural(quiz.questions.length,'ответа','ответов','ответов')} верно · ${esc(quiz.title)}<br>${percent===100?'Тема усвоена отлично. Можно двигаться дальше.':percent>=60?'Основы уже получаются. Разбор поможет закрыть пробелы.':'Посмотри объяснения и повтори теорию. Следующий раз будет увереннее.'}</p><div class="row" style="justify-content:center"><button class="btn" data-action="retry-quiz">Попробовать ещё раз ${icon('arrow',15)}</button><a class="btn secondary" href="#/course/${slugPath(quiz.courseId)}">Повторить теорию</a></div></section><h2 style="font-size:24px;margin-bottom:20px">Разберём каждый ответ</h2>${quiz.questions.map((q,i)=>{const {correct,answer,explanation}=feedback[i];return `<article class="result-item"><h3><span class="${correct?'correct':'incorrect'}">${correct?'✓':'×'}</span> ${i+1}. ${esc(q.text)}</h3><p class="${correct?'correct':'incorrect'}">Твой ответ: ${esc(quiz.answers[i]||'Без ответа')}</p>${!correct?`<p>Правильный ответ: <strong>${esc(answer)}</strong></p>`:''}<p class="muted">${esc(explanation)}</p></article>`}).join('')}<a class="text-button" href="#/trainer">← Выбрать другую тему</a></div>`,'trainer');}
+function profilePage(){const started=data.courses.filter(c=>c.published&&progress(c)>0),completed=started.reduce((n,c)=>n+progress(c),0);return shell(`${crumbs([['Моё обучение']])}<div class="page-heading"><div class="eyebrow">Твой личный маршрут</div><h1>С возвращением, исследователь!</h1><p>Каждый маленький шаг считается. Продолжай там, где остановился, или открывай новое.</p></div>${studyProfile()}<div class="profile-stats"><div class="stat-card purple"><strong>${completed}</strong><span>Уроков пройдено</span></div><div class="stat-card green"><strong>${(data.attemptCount??data.attempts.length)}</strong><span>Тренировок завершено</span></div><div class="stat-card peach"><strong>${started.length}</strong><span>Курсов начато</span></div></div><h2 style="font-size:25px;margin-bottom:20px">Продолжить открытия</h2>${started.length?`<div class="course-grid">${started.map(c=>courseCard(c)).join('')}</div>`:empty('Твой первый шаг впереди','Выбери курс и пройди первый урок — здесь появится твой прогресс.','Найти интересный курс','#/catalog/courses')}<section class="section"><h2 style="font-size:25px;margin-bottom:20px">Последние тренировки</h2>${data.attempts.length?data.attempts.slice(-6).reverse().map(a=>`<div class="admin-row" style="background:white;border-radius:14px;margin-bottom:10px">${icon('target',22)}<div><strong>${esc(a.title)}</strong><small>${new Date(a.date).toLocaleDateString('ru-RU')} · ${a.right} из ${a.total} верно</small></div><span class="status end">${Math.round(a.right/a.total*100)}%</span></div>`).join(''):'<p class="muted">Пока нет тренировок. <a class="text-button" href="#/trainer">Проверим знания?</a></p>'}</section>`);}
+function aboutPage(){return shell(`${crumbs([['О платформе']])}<div class="page-heading"><div class="eyebrow">Образование без границ</div><h1>Любопытство — твоя суперсила</h1><p>${esc(data.platform)} — рабочее название платформы бесплатного образования. Мы создаём место, где школьники могут учиться, пробовать и находить свои интересы.</p></div><div class="about-grid">${[['book','Читай и разбирайся','Учебные материалы собраны по направлениям, большим темам и урокам. Конспекты и презентации открываются прямо в браузере.'],['play','Учись шаг за шагом','В курсах теория чередуется с практикой. Выбирай ответ или вводи его сам — и получай понятное объяснение.'],['target','Проверяй себя','Тренажёр помогает повторить отдельную тему. После теста ты увидишь результат и подробный разбор ответов.']].map(([i,t,p])=>`<div class="panel">${icon(i,40)}<h3>${t}</h3><p>${p}</p></div>`).join('')}</div><section class="faq"><h2 style="font-size:26px;margin:35px 0 20px">Всё, что хочется спросить</h2><details open><summary>Это действительно бесплатно?</summary><p>В текущей версии все уроки, материалы и тренажёры открыты бесплатно. Подписок и платных разделов нет.</p></details><details><summary>С чего начать?</summary><p>Выбери свою школу, затем направление. Для последовательного обучения открой «Курсы», для повторения отдельной темы — «Тренажёр», для чтения — «Учебные материалы».</p></details><details><summary>Можно ли вернуться к пройденному уроку?</summary><p>Да. После входа прогресс доступен на других устройствах. Если учишься без входа, он сохраняется в этом браузере.</p></details><details><summary>Как преподавателю добавить свой курс?</summary><p>Открой редактор преподавателя внизу страницы. Добавь направление, выбери цвет карточки, создай курс, темы, уроки и задания. Можно прикрепить PDF-пособия и PDF-презентации. Редактор доступен после входа преподавателя. Сохранённые курсы появляются в общей библиотеке.</p></details></section><section class="about-banner">${icon('rocket',60)}<div><h3>Начать можно прямо сейчас</h3><p>Один урок — уже маленькое открытие.</p></div><a class="btn" href="#/schools">Выбрать школу ${icon('arrow',16)}</a></section>`,'about');}
 function notFound(){return shell(`<div style="padding:65px 0">${empty('Эта орбита пока не открыта','Возможно, курс ещё не опубликован или адрес изменился.','На главную','#/')}</div>`);}
 
 function render(){
@@ -116,13 +119,12 @@ function render(){
  document.documentElement.dataset.planet=planet?.planet||'cosmos';
  document.documentElement.classList.toggle('home-universe',!page);
  document.documentElement.classList.toggle('school-universe',page==='school'&&!!planet);
- document.documentElement.classList.toggle('subject-universe',page==='subject');
+ document.documentElement.classList.toggle('learning-orbit',!!planet&&['school','subject','course','materials'].includes(page));
  document.documentElement.classList.toggle('motion-off',localStorage.getItem('orbita-motion')==='off');
  const pages={schools:schoolsPage,school:()=>schoolPage(a),subject:()=>subjectPage(a,b,c),catalog:()=>catalog(a,b),course:()=>coursePage(a),lesson:()=>lessonPage(a,b),materials:()=>materialsPage(a,b),trainer:trainerPage,quiz:quizPage,result:quizResult,profile:profilePage,about:aboutPage,admin:()=>adminPage(a,b)};
  app.innerHTML=page?(pages[page]?.()||notFound()):home();
  document.title=`${page==='admin'?'Редактор · ':''}${data.platform} — учиться интересно`;
  syncMotionButton();
- mountExpeditionScenes();
  if(page==='admin'&&a==='teachers'&&isOwner())loadTeacherList().catch(e=>toast(e.message));
 }
 let pendingEditorNavigation=null;
@@ -227,12 +229,12 @@ document.addEventListener('click',async e=>{
  if(a==='view-file')await openPdf(el.dataset.id,el.dataset.name);
  if(a==='pdf-prev'&&viewer?.index>1&&!viewer.rendering){viewer.index--;await paintPdf();}
  if(a==='pdf-next'&&viewer?.index<viewer.pdf.numPages&&!viewer.rendering){viewer.index++;await paintPdf();}
- if(a==='complete-lesson'){const c=getCourse(el.dataset.course),lessons=allLessons(c),index=lessons.findIndex(l=>l.id===el.dataset.lesson);data.progress[c.id]??=[];if(!data.progress[c.id].includes(el.dataset.lesson))data.progress[c.id].push(el.dataset.lesson);persist();if(index<lessons.length-1)location.hash=`#/lesson/${slugPath(c.id)}/${slugPath(lessons[index+1].id)}`;else{location.hash=`#/course/${slugPath(c.id)}`;toast('Курс пройден! Ещё одно большое открытие.');}}
- if(a==='start-quiz'){const c=getCourse(el.dataset.course),m=c.modules.find(m=>m.id===el.dataset.module);quiz={title:m.title,courseId:c.id,questions:structuredClone(m.lessons.flatMap(l=>l.questions.map(q=>({...q,context:/пример|строки/.test(q.text)?(l.theory.match(/```[\w]*\n([\s\S]*?)```/)?.[1]||''):''})))),answers:[],index:0,recorded:false};location.hash='#/quiz';}
+ if(a==='complete-lesson')await advanceLesson(el);
+ if(a==='start-quiz')openTraining(el.dataset.course,el.dataset.module);
  if(a==='quiz-back'&&quiz){const f=document.querySelector('#trainer-quiz');quiz.answers[quiz.index]=new FormData(f).get('answer0')||'';quiz.index=Math.max(0,quiz.index-1);render();}
  if(a==='leave-quiz')askLeaveQuiz();
  if(a==='confirm-leave-quiz'){quiz=null;closeModal();location.hash='#/trainer';}
- if(a==='retry-quiz'&&quiz){quiz.answers=[];quiz.index=0;quiz.recorded=false;location.hash='#/quiz';}
+ if(a==='retry-quiz'&&quiz){openTraining(quiz.courseId,quiz.moduleId);}
  if(a==='new-subject')openSubject();
  if(a==='edit-subject')openSubject(el.dataset.id);
  if(a==='delete-subject'){const s=getSubject(el.dataset.id),count=data.courses.filter(c=>c.subject===s.id).length;if(count){toast('Сначала удали или перенеси курсы этого направления.');return;}askDelete('Удалить направление?',s.title,'confirm-delete-subject',s.id);}
@@ -256,10 +258,102 @@ document.addEventListener('click',async e=>{
 });
 function askLeaveQuiz(){showModal(`${modalHeader('Вернуться к выбору темы?')}<p class="muted">Незавершённая тренировка не попадёт в статистику. Можно начать её заново в любое время.</p><div class="modal-footer"><button class="btn secondary" data-action="close-modal">Продолжить</button><button class="btn" data-action="confirm-leave-quiz">Вернуться к темам</button></div>`);}
 
+function studyProfile(){
+ if(!session.user)return `${notice('Прогресс гостя хранится в этом браузере. После входа новые результаты будут доступны на других устройствах.')}<p class="margin-bottom"><a class="btn" href="${esc(session.studySignIn)}">Войти через ChatGPT</a></p>`;
+ const status=studyProfileUnavailable?'Не удалось загрузить историю обучения.':'Прогресс сохраняется в аккаунте и доступен на других устройствах.';
+ return `${notice(status)}<div class="row margin-bottom">${studyProfileUnavailable?'<button class="btn secondary" data-action="reload-library">Загрузить историю</button>':''}<a class="btn secondary" href="${esc(session.studySignOut)}">Выйти</a></div>`;
+}
+
+const submitStudy=(kind,input)=>api('learning/'+kind,{
+ method:'POST',body:JSON.stringify({...input,account:session.user?.id??null}),
+});
+const submittedAnswers=(questions,values)=>questions.map((question,index)=>({id:question.id,value:values[index]}));
+
+function markLessonComplete(courseId,lessonId){
+ const completed=data.progress[courseId]??=[];
+ if(!completed.includes(lessonId))completed.push(lessonId);
+ if(!session.user)persist();
+}
+
+async function advanceLesson(button){
+ if(button.disabled)return;
+ const course=getCourse(button.dataset.course),lessons=allLessons(course);
+ const index=lessons.findIndex(lesson=>lesson.id===button.dataset.lesson);
+ if(index<0)return;
+ const lesson=lessons[index];
+ button.disabled=true;
+ try{
+  if(!data.progress[course.id]?.includes(lesson.id)){
+   const result=await submitStudy('lesson',{courseId:course.id,lessonId:lesson.id,answers:[]});
+   if(!result.completed)return;
+   markLessonComplete(course.id,lesson.id);
+  }
+  if(!button.isConnected)return;
+  if(index<lessons.length-1)location.hash=`#/lesson/${slugPath(course.id)}/${slugPath(lessons[index+1].id)}`;
+  else{location.hash=`#/course/${slugPath(course.id)}`;toast('Курс пройден! Ещё одно большое открытие.');}
+ }catch(error){toast(error.message);}
+ finally{button.disabled=false;}
+}
+
+async function checkLesson(form){
+ const button=form.querySelector('button[type="submit"]');
+ if(button.disabled)return;
+ const course=getCourse(form.dataset.course);
+ const lesson=allLessons(course).find(item=>item.id===form.dataset.lesson);
+ const values=new FormData(form);
+ const answers=submittedAnswers(lesson.questions,lesson.questions.map((_,index)=>values.get(`q${index}`)));
+ button.disabled=true;
+ try{
+  const result=await submitStudy('lesson',{courseId:course.id,lessonId:lesson.id,answers});
+  if(result.completed)markLessonComplete(course.id,lesson.id);
+  if(!form.isConnected)return;
+  result.feedback.forEach(({correct,answer,explanation},index)=>{
+   form.querySelector(`#feedback-${index}`).innerHTML=`<div class="feedback ${correct?'correct':'incorrect'}"><strong>${correct?'Верно!':'Пока не получилось'}</strong>${!correct?`Правильный ответ: ${esc(answer)}. `:''}${esc(explanation)}</div>`;
+  });
+  form.querySelector('#lesson-score').textContent=`${result.right} из ${result.total} верно${result.completed?' · Можно двигаться дальше!':''}`;
+  if(result.completed)form.closest('article').querySelector('[data-action="complete-lesson"]').disabled=false;
+ }catch(error){toast(error.message);}
+ finally{button.disabled=false;}
+}
+
+function openTraining(courseId,moduleId){
+ const course=getCourse(courseId),module=course?.modules.find(item=>item.id===moduleId);
+ if(!module)return;
+ quiz={id:uid(),title:module.title,courseId,moduleId,questions:trainingQuestions(module),answers:[],index:0};
+ location.hash='#/quiz';
+}
+
+async function advanceTraining(form){
+ const button=form.querySelector('button[type="submit"]');
+ if(button.disabled||!quiz)return;
+ const attempt=quiz;
+ attempt.answers[attempt.index]=new FormData(form).get('answer0')||'';
+ if(attempt.index<attempt.questions.length-1){
+  attempt.index++;
+  render();
+  return;
+ }
+ button.disabled=true;
+ const previous=form.querySelector('[data-action="quiz-back"]');
+ previous.disabled=true;
+ try{
+  const answers=submittedAnswers(attempt.questions,attempt.answers);
+  const result=await submitStudy('training',{id:attempt.id,courseId:attempt.courseId,moduleId:attempt.moduleId,answers});
+  if(!data.attempts.some(item=>item.id===result.attempt.id)){
+   data.attemptCount=(data.attemptCount??data.attempts.length)+1;
+   data.attempts.push(result.attempt);
+   if(!session.user)persist();
+  }
+  attempt.result=result;
+  if(quiz===attempt&&form.isConnected)location.hash='#/result';
+ }catch(error){toast(error.message);}
+ finally{button.disabled=false;previous.disabled=attempt.index===0;}
+}
+
 document.addEventListener('submit',async e=>{
  const f=e.target;if(f.id==='teacher-form'){e.preventDefault();if(!isOwner())return;const button=f.querySelector('button');button.disabled=true;try{await api('admin/teachers',{method:'POST',body:JSON.stringify({email:new FormData(f).get('email')})});f.reset();await loadTeacherList();toast('Преподаватель добавлен.');}catch(e){toast(e.message);}finally{button.disabled=false;}return;}if(['subject-form','course-form','lesson-form','platform-form'].includes(f.id)&&!canEdit()){e.preventDefault();toast('Требуется вход преподавателя.');return;}if(librarySaving&&['subject-form','course-form','lesson-form','platform-form'].includes(f.id)){e.preventDefault();toast('Дождитесь завершения сохранения.');return;}if(!['lesson-quiz','trainer-quiz','subject-form','course-form','lesson-form','platform-form'].includes(f.id))return;e.preventDefault();
- if(f.id==='lesson-quiz'){const c=getCourse(f.dataset.course),l=allLessons(c).find(l=>l.id===f.dataset.lesson),values=new FormData(f);let right=0;l.questions.forEach((q,i)=>{const answer=values.get(`q${i}`)||'',correct=check(q,answer);if(correct)right++;document.querySelector(`#feedback-${i}`).innerHTML=`<div class="feedback ${correct?'correct':'incorrect'}"><strong>${correct?'Верно!':'Пока не получилось'}</strong>${!correct?`Правильный ответ: ${esc(q.answer)}. `:''}${esc(q.explanation)}</div>`;});document.querySelector('#lesson-score').textContent=`${right} из ${l.questions.length} верно${right===l.questions.length?' · Можно двигаться дальше!':''}`;if(right===l.questions.length){data.progress[c.id]??=[];if(!data.progress[c.id].includes(l.id))data.progress[c.id].push(l.id);persist();document.querySelector('[data-action="complete-lesson"]').disabled=false;}}
- if(f.id==='trainer-quiz'){quiz.answers[quiz.index]=new FormData(f).get('answer0')||'';if(quiz.index<quiz.questions.length-1){quiz.index++;render();}else location.hash='#/result';}
+ if(f.id==='lesson-quiz')await checkLesson(f);
+ if(f.id==='trainer-quiz')await advanceTraining(f);
  if(f.id==='subject-form'){const v=new FormData(f),s={id:f.dataset.id,title:String(v.get('title')).trim(),desc:String(v.get('desc')).trim(),theme:safeTheme(v.get('theme')),icon:String(v.get('icon')),schools:v.getAll('schools')};if(!s.title||!s.desc||!s.schools.length){toast('Заполни название, описание и выбери хотя бы одну школу.');return;}if(data.subjects.some(x=>x.id!==s.id&&normalize(x.title)===normalize(s.title))){toast('Направление с таким названием уже существует.');return;}if(data.courses.some(c=>c.subject===s.id&&c.schools.some(x=>!s.schools.includes(x)))){toast('В исключённой школе есть курсы этого направления. Сначала измени школы этих курсов.');return;}const idx=data.subjects.findIndex(x=>x.id===s.id);if(idx<0)data.subjects.push(s);else data.subjects[idx]=s;if(!await persistLibrary())return;closeModal();render();toast('Направление сохранено.');}
  if(f.id==='course-form'){captureCourse();const error=validateCourse(draft);if(error){toast(error);return;}const old=getCourse(draft.id),oldFiles=allLessons(old).flatMap(l=>l.attachments||[]),newFiles=new Set(allLessons(draft).flatMap(l=>(l.attachments||[]).map(f=>f.id)));data.courses[data.courses.findIndex(c=>c.id===draft.id)]=structuredClone(draft);const allowed=new Set(allLessons(draft).map(l=>l.id));if(data.progress[draft.id])data.progress[draft.id]=data.progress[draft.id].filter(id=>allowed.has(id));if(await persistLibrary()){for(const file of oldFiles)if(!newFiles.has(file.id))await deleteFile(file.id).catch(()=>{});toast('Курс сохранён. '+(draft.published?'Он виден в каталоге.':'Он пока остаётся черновиком.'));}}
  if(f.id==='lesson-form'){captureLesson();const error=validateLesson(lessonDraft.lesson);if(error){toast(error);return;}const submit=f.querySelector('[type=submit]');submit.disabled=true;try{for(const pending of lessonDraft.pendingFiles){const uploaded=await uploadPdf(pending.file,pending.kind);lessonDraft.lesson.attachments.push(uploaded);}const m=draft.modules.find(m=>m.id===lessonDraft.moduleId),idx=m.lessons.findIndex(l=>l.id===lessonDraft.lesson.id);if(idx<0)m.lessons.push(structuredClone(lessonDraft.lesson));else m.lessons[idx]=structuredClone(lessonDraft.lesson);closeModal();refreshModules();toast('Урок добавлен в черновик. Сохрани курс, чтобы применить изменения.');}catch{toast('Не удалось загрузить PDF. Проверь соединение и права преподавателя.');submit.disabled=false;}}
@@ -296,8 +390,24 @@ async function bootstrap(){
   if(previousLocalLibrary&&!old.serverManaged&&!localStorage.getItem('orbita-before-server-v1'))localStorage.setItem('orbita-before-server-v1',previousLocalLibrary);
   const remote=await loadLibrary();
   Object.assign(data,remote,{serverManaged:true});
-  for(const c of data.courses){const previous=old.courses.find(x=>x.id===c.id);if(!previous)continue;const completedTitles=allLessons(previous).filter(l=>old.progress[c.id]?.includes(l.id)).map(l=>l.title);data.progress[c.id]=allLessons(c).filter(l=>completedTitles.includes(l.title)).map(l=>l.id);}
-  saveData(data);render();
+  studyProfileUnavailable=false;
+  if(session.user){
+   Object.assign(data,{progress:{},attempts:[],attemptCount:0});
+   try{Object.assign(data,await api('learning'));}
+   catch{studyProfileUnavailable=true;}
+  }else{
+   const guest=loadData();
+   Object.assign(data,{progress:guest.progress,attempts:guest.attempts,attemptCount:undefined});
+   if(!old.serverManaged){
+    for(const course of data.courses){
+     const previous=old.courses.find(item=>item.id===course.id);
+     if(!previous)continue;
+     const titles=new Set(allLessons(previous).filter(lesson=>old.progress[course.id]?.includes(lesson.id)).map(lesson=>lesson.title));
+     data.progress[course.id]=allLessons(course).filter(lesson=>titles.has(lesson.title)).map(lesson=>lesson.id);
+    }
+   }
+  }
+  cacheData();render();
  }catch(e){app.innerHTML=`<div class="container"><div class="empty" style="margin-top:60px"><h1 style="font-size:28px">Не удалось открыть библиотеку</h1><p>${esc(e.message)}</p><button class="btn" data-action="reload-library">Повторить</button></div></div>`;}
 }
 window.addEventListener('teacher-access-changed',()=>{draft=null;closeModal();if(route()[0]==='admin')render();});

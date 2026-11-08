@@ -1,11 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {initialData,schools,themes,allLessons} from '../public/data.js';
+import {schools,themes,allLessons} from '../public/data.js';
+import {initialData} from '../lib/course-seed.mjs';
 
 test('Seed module can load in a Worker global scope without generating randomness',async()=>{
  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'crypto');
  Object.defineProperty(globalThis,'crypto',{configurable:true,value:{randomUUID(){throw new Error('Randomness outside a request');}}});
- try{const module=await import('../public/data.js?worker-regression');assert.ok(module.initialData().courses.length);assert.deepEqual(module.initialData(),module.initialData());}
+ try{const module=await import('../lib/course-seed.mjs?worker-regression');assert.ok(module.initialData().courses.length);assert.deepEqual(module.initialData(),module.initialData());}
  finally{if(descriptor)Object.defineProperty(globalThis,'crypto',descriptor);else delete globalThis.crypto;}
 });
 

@@ -8,11 +8,143 @@
 .stop-copy h2 { font-size: clamp(32px,3.3vw,58px); line-height: 1.15; }
 .stop-school-title { color: var(--stop-accent); font-size: 1rem; margin-top: 5px; }
 .school-world-heading h1 { font-size: clamp(48px,5.4vw,86px); line-height: 1.12; }
-.school-universe .planet-horizon { opacity: .17; }
-.school-universe .planet-school-hero { min-height: 0; padding: 30px 0 42px; grid-template-columns: 1fr; }
-.school-universe .school-world-planet { display: none; }
-.school-world-copy { max-width: 1050px; }
-.school-world-copy h2 { font-size: 1.4rem; }
-.school-world-copy p { max-width: 830px; margin-top: 16px; }
-.school-world-formats { margin-top: 20px; }
-.subject-hero .eyebrow { font-size:.75rem;margin-bottom:14px; }
+
+/* Keep a few visible stars above the reading shade, with the globe in front of them. */
+.sky-details {
+  --sky-cycle: 68s;
+  position: absolute; inset: 0; z-index: 4; pointer-events: none;
+}
+.cosmic-backdrop:has(.planet-horizon) .sky-details {
+  mask-image: radial-gradient(circle calc(var(--orbit-size) * .5)
+    at calc(100% - var(--orbit-size) * .22) calc(12vh + var(--orbit-size) * .5),
+    transparent calc(100% - 1px), #000 100%);
+}
+.sky-star {
+  position: absolute; left: var(--sky-x); top: var(--sky-y);
+  width: 2px; height: 2px; border-radius: 50%;
+  background: #d4e1fa; opacity: .35;
+  animation: sky-twinkle 12s var(--sky-delay) ease-in-out infinite alternate;
+}
+.sky-star:nth-child(4n) { width: 1px; height: 1px; background: #f4d6ae; }
+.sky-star:nth-child(5n + 1) { box-shadow: 0 0 5px 1px #9fb8ed55; }
+.sky-comet {
+  --comet-x: -38vw;
+  --comet-y: 19vh;
+  position: absolute; left: 79%; top: 12%; opacity: 0;
+  width: clamp(38px, 7vw, 100px); height: 2px; border-radius: 50%;
+  background: linear-gradient(90deg, #dfebff, #9ab5df55 24%, transparent 100%);
+  transform-origin: left center;
+  rotate: -24deg;
+  animation: sky-comet-pass var(--sky-cycle) 4.5s linear infinite;
+}
+.sky-comet.second-comet { left: 61%; top: 68%; animation-delay: 36.5s; }
+.cosmic-backdrop:has(.planet-horizon) .sky-comet { left: 45%; top: 7%; }
+.cosmic-backdrop:has(.planet-horizon) .second-comet { left: 37%; top: 65%; }
+.sky-flyby {
+  position: absolute; width: 26px; height: auto; opacity: 0;
+  animation: sky-flyby var(--sky-cycle) var(--flyby-delay) linear infinite;
+}
+.sky-ufo {
+  --flyby-delay: 17s;
+  --flyby-x: -32vw;
+  --flyby-y: 11vh;
+  left: 45%; top: 8%; rotate: -8deg;
+}
+.sky-satellite {
+  --flyby-delay: 52s;
+  --flyby-x: 28vw;
+  --flyby-y: -15vh;
+  left: 3%; top: 24%; width: 18px; rotate: -27deg;
+}
+@keyframes sky-twinkle {
+  from { opacity: .23; }
+  to { opacity: .62; }
+}
+@keyframes sky-comet-pass {
+  0% { translate: 0 0; opacity: 0; }
+  .8% { opacity: .64; }
+  2.3% { opacity: .38; }
+  3.5%, 100% { translate: var(--comet-x) var(--comet-y); opacity: 0; }
+}
+@keyframes sky-flyby {
+  0% { translate: 0 0; opacity: 0; }
+  1.6%, 4.4% { opacity: .56; }
+  7%, 100% { translate: var(--flyby-x) var(--flyby-y); opacity: 0; }
+}
+@media (max-width: 700px) {
+  .sky-star:nth-child(n + 11), .sky-comet.second-comet { display: none; }
+  .sky-comet { --comet-y: 9vh; rotate: -23deg; }
+  .sky-ufo { --flyby-y: 7vh; width: 21px; }
+  .sky-satellite { --flyby-y: -5vh; top: 10%; width: 15px; }
+}
+
+.learning-orbit .planet-horizon, .planet-horizon.flight-planet { opacity: .82; }
+.learning-orbit .cosmic-backdrop::before, .flight-shade {
+  z-index: 3;
+  opacity: 1;
+  background: linear-gradient(90deg, #080d21ec, #080d21b0 34%, #080d2133 76%, #080d211a);
+}
+.learning-orbit .planet-horizon .planet-sphere, .flight-planet .planet-sphere {
+  box-shadow: inset 2px 3px 14px rgba(var(--world-rgb), .34),
+    inset -25px -35px 90px #0007, 0 0 3px rgba(var(--world-rgb), .32),
+    0 0 80px rgba(var(--world-rgb), .25);
+}
+.learning-orbit .planet-horizon:not(.flight-planet) .planet-texture {
+  --drift-x: 7%;
+  --drift-y: -1%;
+  animation: equatorial-drift 54s ease-in-out infinite alternate;
+}
+.learning-orbit .planet-mars .planet-texture { --drift-y: -2%; }
+.learning-orbit .planet-saturn .planet-texture { --drift-y: -3.4%; }
+.learning-orbit .planet-uranus .planet-texture { --drift-x: 3%; --drift-y: -7%; }
+.learning-orbit .planet-saturn .planet-texture,
+.learning-orbit .planet-uranus .planet-texture {
+  background:
+    radial-gradient(ellipse 35% 8% at 55% 28%, #fff4, transparent),
+    radial-gradient(ellipse 28% 9% at 44% 71%, #08182b33, transparent);
+}
+@keyframes equatorial-drift {
+  from { translate: 0 0; }
+  to { translate: var(--drift-x) var(--drift-y); }
+}
+.motion-off.learning-orbit .planet-horizon .planet-texture { animation: none; }
+
+.school-universe .planet-school-hero {
+  display: block;
+  min-height: 0;
+  padding: 20px 0 0;
+  margin-bottom: clamp(34px, 5vw, 76px);
+}
+.school-world-heading { margin-block: 13px; }
+.school-world-copy p { max-width: 610px; margin-top: 16px; }
+.school-subjects .section-title h2 { font-size: clamp(1.5rem, 2.8vw, 2.25rem); }
+.subject-card { background: transparent; }
+.subject-card .flip-front, .subject-card .flip-back { overflow-wrap: anywhere; }
+.subject-card .flip-back { gap: 10px; overflow: auto; }
+.subject-card .text-button {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 0;
+  color: var(--tone);
+  font-size: .875rem;
+}
+.subject-card .subject-summary { display: none; }
+.subject-hero .eyebrow { font-size: .75rem; margin-bottom: 14px; }
+.subject-hero > div { min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 700px) {
+  .learning-orbit .planet-horizon, .planet-horizon.flight-planet { opacity: .68; }
+  .school-world-heading h1 { font-size: clamp(38px, 8vw, 55px); }
+  .subject-hero > svg { width: 45px; height: 45px; }
+}
+@media (max-width: 540px) {
+  .school-subjects .subject-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .subject-card { height: auto; }
+  .subject-card:hover .flip-inner, .subject-card:focus-visible .flip-inner { transform: none; }
+  .subject-card .flip-front { position: relative; padding: 24px; gap: 8px; }
+  .subject-card .flip-front > svg { position: static; width: 36px; height: 36px; }
+  .subject-card .subject-summary { display: block; font-size: .875rem; }
+  .subject-card .flip-back { display: none; }
+}
